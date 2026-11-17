@@ -6,7 +6,7 @@ A DC-GAN trained on 64x64 Impressionist landscape paintings from WikiArt.
 
 ## Data
 
-The data is not downloaded automatically. From the
+From the
 [`steubk/wikiart`](https://www.kaggle.com/datasets/steubk/wikiart) dataset,
 copy the 4,365 Impressionism landscapes into `data/landscapes/`. These are the
 rows of `wclasses.csv` whose `file` starts with `Impressionism/` and whose
@@ -33,12 +33,3 @@ A fixed random 80% (3,493 images) is used for training.
 python -m pip install -r requirements.txt
 python main.py
 ```
-
-Run `main.py` from the repository root. Settings are constants at the top of
-`main.py`. Training runs for 350 epochs and writes to `results/`:
-
-- `samples_*.png`: samples after each epoch
-- `history.csv`: discriminator and generator losses
-- `metrics.csv`: FID and Inception Score every 10 epochs
-- `training_curves.png`: losses and FID over training
-- `best.pt`, `generated.png`: the lowest-FID generator and its samples
