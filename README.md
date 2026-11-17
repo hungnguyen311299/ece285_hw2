@@ -1,16 +1,44 @@
-# ECE 285 - Homework 1
+# ECE 285 - Homework 2
 
 Requires Python 3.10+.
 
-```bash
-cd ece285_hw1
-python -m pip install -r requirements.txt
-python main.py --epochs 100
+A DC-GAN trained on 64x64 Impressionist landscape paintings from WikiArt.
+
+## Data
+
+The data is not downloaded automatically. From the
+[`steubk/wikiart`](https://www.kaggle.com/datasets/steubk/wikiart) dataset,
+copy the 4,365 Impressionism landscapes into `data/landscapes/`. These are the
+rows of `wclasses.csv` whose `file` starts with `Impressionism/` and whose
+`genre` is `133` (landscape). The images go directly in `data/landscapes/`,
+without subfolders:
+
+```
+ece285_hw2/
+├── data/
+│   └── landscapes/
+│       ├── <artist>_<title>.jpg
+│       └── ...              (4,365 .jpg files)
+├── main.py
+├── metrics.py
+├── model.py
+└── requirements.txt
 ```
 
-The dataset downloads automatically. Results are saved in `results/`.
+A fixed random 80% (3,493 images) is used for training.
 
-If you already have the dataset:
+## Run
 
 ```bash
-python main.py --data-path /path/to/chest_xray --epochs 100
+python -m pip install -r requirements.txt
+python main.py
+```
+
+Run `main.py` from the repository root. Settings are constants at the top of
+`main.py`. Training runs for 350 epochs and writes to `results/`:
+
+- `samples_*.png`: samples after each epoch
+- `history.csv`: discriminator and generator losses
+- `metrics.csv`: FID and Inception Score every 10 epochs
+- `training_curves.png`: losses and FID over training
+- `best.pt`, `generated.png`: the lowest-FID generator and its samples

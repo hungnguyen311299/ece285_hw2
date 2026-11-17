@@ -1,47 +1,49 @@
-import torch
 from torch import nn
 
 
-class VAE(nn.Module):
-    def __init__(self):
+class Generator(nn.Module):
+    def __init__(self, latent_dim=100):
         super().__init__()
-        self.latent_dim = 128
-        widths = [32, 64, 128, 256, 512]
+        self.latent_dim = latent_dim
+        self.project_noise = nn.Linear(latent_dim, 512 * 4 * 4)
 
-        def block(cin, cout, up=False):
-            conv = (nn.ConvTranspose2d(cin, cout, 3, 2, 1, output_padding=1)
-                    if up else nn.Conv2d(cin, cout, 3, 2, 1))
-            return nn.Sequential(conv, nn.BatchNorm2d(cout), nn.LeakyReLU())
+        def up(cin, cout):
+            return [nn.ConvTranspose2d(cin, cout, 4, 2, 1, bias=False),
+                    nn.BatchNorm2d(cout), nn.ReLU(inplace=True)]
 
-        self.encoder = nn.Sequential(*[
-            block(cin, cout) for cin, cout in zip([1] + widths[:-1], widths)
-        ])
-        self.fc_mu = nn.Linear(2048, self.latent_dim)
-        self.fc_var = nn.Linear(2048, self.latent_dim)
-        self.decoder_input = nn.Linear(self.latent_dim, 2048)
-        reverse = widths[::-1]
-        self.decoder = nn.Sequential(*[
-            block(cin, cout, up=True) for cin, cout in zip(reverse[:-1], reverse[1:])
-        ])
-        self.final_layer = nn.Sequential(
-            *block(32, 32, up=True), nn.Conv2d(32, 1, 3, padding=1), nn.Tanh()
+        self.synthesis = nn.Sequential(
+            nn.BatchNorm2d(512), nn.ReLU(inplace=True),
+            *up(512, 256), *up(256, 128), *up(128, 64),
+            nn.ConvTranspose2d(64, 3, 4, 2, 1), nn.Tanh(),
         )
 
-    def encode(self, images):
-        features = self.encoder(images).flatten(1)
-        return self.fc_mu(features), self.fc_var(features)
+    def forward(self, z):
+        return self.synthesis(self.project_noise(z).view(-1, 512, 4, 4))
 
-    def decode(self, z):
-        features = self.decoder_input(z).reshape(-1, 512, 2, 2)
-        return self.final_layer(self.decoder(features))
+
+class Discriminator(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+        def down(cin, cout):
+            return [nn.Conv2d(cin, cout, 4, 2, 1, bias=False),
+                    nn.BatchNorm2d(cout), nn.LeakyReLU(0.2, inplace=True)]
+
+        self.features = nn.Sequential(
+            nn.Conv2d(3, 64, 4, 2, 1, bias=False), nn.LeakyReLU(0.2, inplace=True),
+            *down(64, 128), *down(128, 256), *down(256, 512),
+        )
+        self.classify = nn.Linear(512 * 4 * 4, 1)
 
     def forward(self, images):
-        mean, log_variance = self.encode(images)
-        z = mean + torch.exp(log_variance / 2) * torch.randn_like(mean)
-        return self.decode(z), mean, log_variance
+        return self.classify(self.features(images).flatten(1))
 
 
-def objective(images, reconstruction, mean, log_variance):
-    mse = (images - reconstruction).square().mean()
-    kl = -0.5 * (1 + log_variance - mean.square() - log_variance.exp()).sum(1).mean()
-    return mse + 0.00025 * kl, mse, kl
+def init_weights(module):
+    if isinstance(module, (nn.Conv2d, nn.ConvTranspose2d, nn.Linear)):
+        nn.init.normal_(module.weight, 0.0, 0.02)
+        if module.bias is not None:
+            nn.init.zeros_(module.bias)
+    elif isinstance(module, nn.BatchNorm2d):
+        nn.init.normal_(module.weight, 1.0, 0.02)
+        nn.init.zeros_(module.bias)
